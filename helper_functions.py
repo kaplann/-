@@ -21,6 +21,20 @@ from bokeh.models.widgets import Panel, Tabs
 from bokeh.charts import Histogram
 from bokeh.layouts import gridplot
 
+#########################  Bokeh  #######################################
+from bokeh.io import output_notebook
+from bokeh.plotting import figure, show, output_file
+from bokeh.models import ColumnDataSource, Range1d, LabelSet, Label, HoverTool
+from bokeh.models.widgets import Panel, Tabs
+from bokeh.charts import Histogram
+from bokeh.layouts import gridplot
+import matplotlib as mpl
+
+from matplotlib.mlab import bivariate_normal
+
+from bokeh.plotting import figure, output_file, show
+from bokeh.models import LogColorMapper, LogTicker, ColorBar
+# 	output_notebook()
 
 # Get number of NaN values in column: 
 def count_NaNs(df, sheet, col): 
@@ -194,5 +208,66 @@ def pca_vec_table(data, sheet_names_heb, num_vec_comp=10):
         pca_trends_.loc[index] = [sheet_name_heb] + new_row  
     return pca_trends_
 
-	
-#from code2run import *
+def single_sheet_pca(sheet_name_heb, processed_pca_sheet, num_elems=7, ): 
+    cols = ['גורם ראשי ' + str(i) for i in range(5)]
+    row_index = processed_pca_sheet[processed_pca_sheet['Sheet'] == sheet_name_heb].index.tolist()[0]
+    pca_elements = [processed_pca_sheet['Vector_' + str(i) ][row_index].split('\n')[:num_elems] for i in range(5)]
+    return pd.DataFrame(dict((col, pca_element) for col, pca_element in zip(cols, pca_elements)))
+# TODO: 
+#1) Add other params to display with hover
+#2) Add heatmap bar for color of dots
+#3) Add legend for size of dots
+def toolTip_scatter_5d(sheet, original_sheet, x_var, y_var, size_var, color_var, hover_var, sheet_name, min_size=4):
+    sum_size = sum(sheet[size_var])
+    source = ColumnDataSource(
+        data=dict(
+            x = [x for x in sheet[x_var]], 
+            y = [x for x in sheet[y_var]],
+            size_norm =  [min_size + 2*min_size*x/sum_size for x in sheet[size_var]], 
+            size_ = [x for x in sheet[size_var]],
+            #color_ = [5 + 5*x for x in sheet[color_var]],
+            color_ = ["#%02x%02x%02x" % (int(r), int(g), int(b)) for r, g, b, _ in 
+                                255*mpl.cm.viridis(mpl.colors.Normalize()(sheet[color_var]))],
+            color_hover = [x for x in sheet[color_var]],
+            hover_title = [x for x in original_sheet[hover_var]][1:],)) #In original sheet first english row not removed
+
+    hover = HoverTool(
+        tooltips=[
+            ("Name", "@hover_title"),
+            (color_var+' (color)', '@color_hover'),
+            (size_var+ ' (radius)', "@size_"),
+            ("(x,y)", "($x, $y)"),])
+#             ("Frequency", "@frequency"),]) # TODO: remove fo
+    TOOLS = 'pan, box_zoom,box_select,resize,reset, wheel_zoom'
+
+    p = figure(title='ייצוג דו-ממדי של '+ sheet_name,
+                tools=TOOLS, plot_width=700, plot_height=400, )
+    p.add_tools(hover)
+    p.xaxis[0].axis_label = x_var
+    p.yaxis[0].axis_label = y_var
+#     text_font_size = "25px"
+    p.scatter('x', 'y', radius='size_norm', color='color_',
+              source=source,fill_alpha=0.6,) #fill_color=colors,
+    p.title.align = "center"
+    p.title.text_font_size = "25px"
+    show(p)
+
+def plot_scatter_tabs(data, sheet_names_heb,): 
+    tabs = [Panel(child=calc_eig_n_plot_scree(data, sheet_i, return_p=True), title=sheet_i) for sheet_i in sheet_names_heb]
+    tabs = Tabs(tabs=list(tabs))
+    show(tabs)
+
+
+def create_data_dict(x_var, y_var, sheet_name_heb, sheet, ori_sheet,  size_var, color_var, hover_var): 
+    return {'sheet_name': sheet_name_heb,
+            'sheet': sheet[sheet_name_heb], 
+             'original_sheet': ori_sheet[sheet_name_heb], 
+             'x_var': x_var,
+             'y_var': y_var,
+             'size_var': size_var,
+             'color_var': color_var,
+             'hover_var': hover_var,}
+
+def create_data_dicts(x_s, y_s, min_sizes, sheet_name_heb, df_c, df_ori, size_, color_, hover_): 
+    return [create_data_dict(x, y, sheet_name_heb, df_c, df_ori,  size_, color_, hover_)
+            for x, y, size_var in zip(x_s, y_s, min_sizes)]
