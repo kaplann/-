@@ -213,11 +213,13 @@ def single_sheet_pca(sheet_name_heb, processed_pca_sheet, num_elems=7, ):
     row_index = processed_pca_sheet[processed_pca_sheet['Sheet'] == sheet_name_heb].index.tolist()[0]
     pca_elements = [processed_pca_sheet['Vector_' + str(i) ][row_index].split('\n')[:num_elems] for i in range(5)]
     return pd.DataFrame(dict((col, pca_element) for col, pca_element in zip(cols, pca_elements)))
+
+
 # TODO: 
 #1) Add other params to display with hover
 #2) Add heatmap bar for color of dots
 #3) Add legend for size of dots
-def toolTip_scatter_5d(sheet, original_sheet, x_var, y_var, size_var, color_var, hover_var, sheet_name, min_size=4):
+def toolTip_scatter_5d(sheet, original_sheet, x_var, y_var, size_var, color_var, hover_var, sheet_name, min_size=4, return_p=True):
     sum_size = sum(sheet[size_var])
     source = ColumnDataSource(
         data=dict(
@@ -244,19 +246,32 @@ def toolTip_scatter_5d(sheet, original_sheet, x_var, y_var, size_var, color_var,
                 tools=TOOLS, plot_width=700, plot_height=400, )
     p.add_tools(hover)
     p.xaxis[0].axis_label = x_var
-    p.yaxis[0].axis_label = y_var
+    if len(y_var)>30: 
+        p.yaxis[0].axis_label = y_var[:30]
+
+        #         t= y_var.split(' ')
+#         t.insert(int(len(y_var.split(' '))/2), ' \n\r ')
+#         p.yaxis[0].axis_label = ''.join(t)
+         #' '.split(y_var).insert(int(len(' '.split(y_var))/2), '\n')
+    else: 
+        p.yaxis[0].axis_label = y_var
 #     text_font_size = "25px"
     p.scatter('x', 'y', radius='size_norm', color='color_',
               source=source,fill_alpha=0.6,) #fill_color=colors,
     p.title.align = "center"
     p.title.text_font_size = "25px"
-    show(p)
+    if return_p: 
+        return p
+    else: 
+        show(p)
 
-def plot_scatter_tabs(data, sheet_names_heb,): 
-    tabs = [Panel(child=calc_eig_n_plot_scree(data, sheet_i, return_p=True), title=sheet_i) for sheet_i in sheet_names_heb]
+def plot_scatter_tabs(data_dicts): 
+    print('גודל דגימות: ,', data_dicts[0]['size_var'])
+    print('צבע דגימות: ,', data_dicts[0]['color_var'])
+    tabs = [Panel(child=toolTip_scatter_5d(**data_dict, return_p=True), title=str(ind)) for ind, data_dict in 
+            zip([x for x in 'ABCDEFGHIJ'], data_dicts)]
     tabs = Tabs(tabs=list(tabs))
     show(tabs)
-
 
 def create_data_dict(x_var, y_var, sheet_name_heb, sheet, ori_sheet,  size_var, color_var, hover_var): 
     return {'sheet_name': sheet_name_heb,
